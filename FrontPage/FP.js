@@ -5,6 +5,54 @@ let allowedToEdit = false;
 
 /* --------------------- Firebase Authentication & Role Checking --------------------- */
 // This function listens for authentication state changes and retrieves the user's custom claims.
+// Import Firebase SDK modules
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// 🔐 Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyA7YubYlcBTuXYcLm7zH0W5JD0S0QqP3bI",
+  authDomain: "chem-trial.firebaseapp.com",
+  projectId: "chem-trial",
+  storageBucket: "chem-trial.appspot.com",
+  messagingSenderId: "774165499720",
+  appId: "1:774165499720:web:397fccc1491b053830ed7d"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Function to update header with email and role
+function updateHeader(email, role) {
+  const header = document.querySelector("#userHeader");
+  if (header) {
+    header.innerHTML = `<strong>${email}</strong> | <em>${role}</em>`;
+  }
+}
+
+// Listen for user authentication state
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const email = user.email;
+
+    // Fetch role from Firestore (assumes role is stored in a document under 'users' collection with uid as doc ID)
+    const userDocRef = doc(db, "users", user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    let role = "User";
+    if (userDocSnap.exists()) {
+      role = userDocSnap.data().role || "User";
+    }
+
+    updateHeader(email, role);
+  } else {
+    updateHeader("Not Logged In", "Guest");
+  }
+});
+
 function initAuth() {
     firebase.auth().onAuthStateChanged((user) => {
         if (user) {
