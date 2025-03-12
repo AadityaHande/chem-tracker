@@ -19,40 +19,48 @@
   </div>
 
   <script type="module">
-    // Import Firebase configuration, Auth, and Firestore from external file
+    // Import Firebase configuration, Auth, and Firestore from our shared config file
     import { app, auth, db } from "../firebase/firebase-config.js";
     import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-    import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-    // Email/Password Login
+    // Email/Password Login with role check/update
     const loginForm = document.getElementById("loginForm");
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = "../FrontPage/FrontPage.html";
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        // Retrieve user's Firestore document; if missing, assign default role "teacher"
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, { role: "teacher" });
+        }
+        // Redirect to frontpage after login
+        window.location.href = "../frontpage/FrontPage.html";
       } catch (err) {
         alert("Login Failed: " + err.message);
       }
     });
 
-    // Google Sign-In
+    // Google Sign-In with role set/update
     const googleLoginBtn = document.getElementById("googleLoginBtn");
     googleLoginBtn.addEventListener("click", async () => {
       const provider = new GoogleAuthProvider();
       try {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
-        // Save user details in Firestore (if not already present)
+        // Save or update user details in Firestore with default role "teacher"
         const userRef = doc(db, "users", user.uid);
         await setDoc(userRef, {
           name: user.displayName,
           email: user.email,
-          role: "teacher" // default role; update as needed
+          role: "teacher"
         }, { merge: true });
-        window.location.href = "../FrontPage/FrontPage.html";
+        window.location.href = "../frontpage/FrontPage.html";
       } catch (err) {
         alert("Google Sign-In Failed: " + err.message);
       }
