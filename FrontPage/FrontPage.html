@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chemical Tracker</title>
+  <link rel="stylesheet" href="FP.css">
+</head>
+<body>
+<header class="navbar">
+  <div class="logo">Chemical Tracker</div>
+  <div class="user-info">
+    <img id="userAvatar" src="default-avatar.png" alt="User Avatar">
+    <div class="user-details">
+      <p class="email" id="userEmail">Loading...</p>
+      <p class="role" id="userRole">Loading role...</p>
+    </div>
+  </div>
+  <button class="dark-mode-btn" onclick="toggleDarkMode()">Toggle</button>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</header>
+
+
+  <div class="container">
+    <input type="text" id="searchBar" class="search-bar" placeholder="Search chemicals..." onkeyup="searchChemicals()">
+    <div class="sort-options">
+      <label for="sort">Sort by:</label>
+      <select id="sort" onchange="sortChemicals()">
+        <option value="low-quantity">Low Quantity</option>
+        <option value="high-quantity">High Quantity</option>
+        <option value="latest-time">Last updated</option>
+      </select>
+    </div>
+    <ul id="chemicalList" class="chemical-list"></ul>
+  </div>
+
+  <!-- This button is shown only for users with admin or teacher roles -->
+  <button id="addChemicalBtn" class="add-btn" onclick="addChemical()" style="display:none;">Add Chemical</button>
+
+  <div id="chemicalModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2 id="modal-name"></h2>
+      <p id="modal-quantity"></p>
+      <p id="modal-time"></p>
+    </div>
+  </div>
+  
+  <!-- Firebase SDKs: order matters -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+  <!-- Firebase configuration (initialize your app here) -->
+  <script src="../firebase/firebase-config.js"></script>
+  <!-- Your FrontPage JavaScript -->
+  <script src="FP.js"></script>
+</body>
+</html>
