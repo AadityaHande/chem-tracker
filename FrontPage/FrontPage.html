@@ -1,58 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chemical Tracker</title>
-  <link rel="stylesheet" href="FP.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chemical Tracker Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    #admin-section, #teacher-section, #add-chemical-form {
+      display: none;
+      margin-top: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background-color: #fff;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+    th {
+      background-color: #eee;
+    }
+    button {
+      padding: 6px 10px;
+      margin: 2px;
+      cursor: pointer;
+    }
+    #user-info {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+    }
+  </style>
 </head>
 <body>
-<header class="navbar">
-  <div class="logo">Chemical Tracker</div>
-  <div class="user-info">
-    <img id="userAvatar" src="default-avatar.png" alt="User Avatar">
-    <div class="user-details">
-      <p class="email" id="userEmail">Loading...</p>
-      <p class="role" id="userRole">Loading role...</p>
-    </div>
-  </div>
-  <button class="dark-mode-btn" onclick="toggleDarkMode()">Toggle</button>
-  <button class="logout-btn" onclick="logout()">Logout</button>
-</header>
 
+  <h1>Lab Chemical Tracker</h1>
 
-  <div class="container">
-    <input type="text" id="searchBar" class="search-bar" placeholder="Search chemicals..." onkeyup="searchChemicals()">
-    <div class="sort-options">
-      <label for="sort">Sort by:</label>
-      <select id="sort" onchange="sortChemicals()">
-        <option value="low-quantity">Low Quantity</option>
-        <option value="high-quantity">High Quantity</option>
-        <option value="latest-time">Last updated</option>
-      </select>
-    </div>
-    <ul id="chemicalList" class="chemical-list"></ul>
+  <!-- User Info Section -->
+  <div id="user-info">
+    <p><strong>Welcome:</strong> <span id="username">Loading...</span></p>
+    <p><strong>Email:</strong> <span id="useremail">Loading...</span></p>
+    <p><strong>Role:</strong> <span id="userrole">Loading...</span></p>
+    <button onclick="logout()">Logout</button>
   </div>
 
-  <!-- This button is shown only for users with admin or teacher roles -->
-  <button id="addChemicalBtn" class="add-btn" onclick="addChemical()" style="display:none;">Add Chemical</button>
+  <!-- Admin Section -->
+  <div id="admin-section">
+    <h2>Admin Dashboard</h2>
+    <div id="add-chemical-form">
+      <h3>Add Chemical</h3>
+      <form id="chemicalForm">
+        <label for="chemName">Name:</label>
+        <input type="text" id="chemName" required><br><br>
 
-  <div id="chemicalModal" class="modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <h2 id="modal-name"></h2>
-      <p id="modal-quantity"></p>
-      <p id="modal-time"></p>
+        <label for="chemQty">Quantity:</label>
+        <input type="number" id="chemQty" required><br><br>
+
+        <label for="chemCategory">Category:</label>
+        <input type="text" id="chemCategory" required><br><br>
+
+        <label for="chemPurchase">Purchase Date:</label>
+        <input type="date" id="chemPurchase" required><br><br>
+
+        <label for="chemExpiry">Expiry Date:</label>
+        <input type="date" id="chemExpiry" required><br><br>
+
+        <button type="submit">Add Chemical</button>
+      </form>
     </div>
   </div>
-  
-  <!-- Firebase SDKs: order matters -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
-  <!-- Firebase configuration (initialize your app here) -->
-  <script src="../firebase/firebase-config.js"></script>
-  <!-- Your FrontPage JavaScript -->
-  <script src="FP.js"></script>
+
+  <!-- Teacher Section -->
+  <div id="teacher-section">
+    <h2>Teacher Dashboard</h2>
+    <p>You have view-only access to the chemicals list.</p>
+  </div>
+
+  <!-- Search, Filter, Sort Controls -->
+  <div>
+    <h3>Search, Filter & Sort Chemicals</h3>
+    <input type="text" id="searchInput" placeholder="Search by name...">
+    <select id="filterCategory">
+      <option value="all">All Categories</option>
+      <option value="Acid">Acid</option>
+      <option value="Base">Base</option>
+      <option value="Solvent">Solvent</option>
+      <option value="Salt">Salt</option>
+      <!-- Add more options as needed -->
+    </select>
+    <select id="sortSelect">
+      <option value="">Sort By</option>
+      <option value="name">Name</option>
+      <option value="quantity">Quantity</option>
+      <option value="expiryDate">Expiry Date</option>
+    </select>
+  </div>
+
+  <!-- Chemicals Table -->
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Quantity</th>
+        <th>Category</th>
+        <th>Purchase Date</th>
+        <th>Expiry Date</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="chemicalTableBody">
+      <!-- Chemicals will be dynamically loaded here -->
+    </tbody>
+  </table>
+
+  <!-- Firebase JS File -->
+  <script type="module" src="./FP.js"></script>
+
 </body>
 </html>
