@@ -81,6 +81,11 @@
               let roleText = "User";
               if (docSnap.exists()) {
                 const userData = docSnap.data();
+                      if (userData.photoURL) {
+                          document.getElementById("userAvatar").src = userData.photoURL;
+                      } else if (user.photoURL) {
+                          document.getElementById("userAvatar").src = user.photoURL;
+                      }
                 if (userData.role === "admin") {
                   window.allowedToEdit = true;
                   roleText = "Admin";
