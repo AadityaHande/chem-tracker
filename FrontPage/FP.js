@@ -1,184 +1,247 @@
-// FP.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js";
+// Retrieve stored chemicals or initialize to an empty array
+let chemicals = JSON.parse(localStorage.getItem("chemicals")) || [];
+// Global flag to indicate if the current user has editing privileges (admin or teacher)
+let allowedToEdit = false;
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyA7YubYlcBTuXYcLm7zH0W5JD0S0QqP3bI",
-  authDomain: "chem-trial.firebaseapp.com",
-  projectId: "chem-trial",
-  storageBucket: "chem-trial.firebasestorage.app",
-  messagingSenderId: "774165499720",
-  appId: "1:774165499720:web:397fccc1491b053830ed7d"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Check authentication state
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    console.log("User is logged in:", user);
-
-    const uid = user.uid;
-    const userDocRef = doc(db, "users", uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (userDocSnap.exists()) {
-      const userData = userDocSnap.data();
-
-      // Update UI
-      document.getElementById("username").textContent = user.displayName || "User";
-      document.getElementById("useremail").textContent = user.email || "No Email";
-      document.getElementById("userrole").textContent = userData.role || "No Role";
-
-      // Show role-based sections
-      if (userData.role === "admin") {
-        document.getElementById("admin-section").style.display = "block";
-        document.getElementById("add-chemical-form").style.display = "block";
-      } else if (userData.role === "teacher") {
-        document.getElementById("teacher-section").style.display = "block";
+/* --------------------- Firebase Authentication & Role Checking --------------------- */
+function initAuth() {
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      // Update UI with Firebase user details: display email and photo if available
+      document.getElementById("userEmail").innerText = user.email;
+      if (user.photoURL) {
+        document.getElementById("userAvatar").src = user.photoURL;
       }
-
+      // Retrieve user role from Firestore (using the document with id equal to user.uid)
+      firebase.firestore().collection("users").doc(user.uid).get()
+        .then((doc) => {
+          let roleText = "User"; // default role
+          if (doc.exists) {
+            let userData = doc.data();
+            if (userData.role === "admin") {
+              allowedToEdit = true;
+              roleText = "Admin";
+            } else if (userData.role === "teacher") {
+              allowedToEdit = true;
+              roleText = "Teacher";
+            } else {
+              allowedToEdit = false;
+            }
+          }
+          // Update the role element in the header
+          document.getElementById("userRole").innerText = roleText;
+          
+          // Optionally, show/hide the add button based on role
+          let addBtn = document.getElementById("addChemicalBtn");
+          if (allowedToEdit && addBtn) {
+            addBtn.style.display = "block";
+          } else if (addBtn) {
+            addBtn.style.display = "none";
+          }
+        })
+        .catch((error) => {
+          console.error("Error retrieving user data:", error);
+        });
     } else {
-      console.log("No Firestore user document found for this UID.");
+      // User is not signed in; redirect to login page.
+      window.location.href = "../login/login.html";
     }
-  } else {
-    // Redirect to login page
-    window.location.href = "login.html";
+  });
+}
+
+/* --------------------- Chemical Tracker Functions --------------------- */
+
+function searchChemicals() {
+  let searchQuery = document.getElementById("searchBar").value.toLowerCase();
+  let filteredChemicals = chemicals.filter(chem => chem.name.toLowerCase().includes(searchQuery));
+  displayChemicals(filteredChemicals);
+}
+
+function sortChemicals() {
+  let sortBy = document.getElementById("sort").value;
+  chemicals.sort((a, b) => {
+    let quantityA = convertToBaseUnit(a.quantity, a.unit);
+    let quantityB = convertToBaseUnit(b.quantity, b.unit);
+    if (sortBy === "low-quantity") {
+      return quantityA - quantityB;
+    } else if (sortBy === "high-quantity") {
+      return quantityB - quantityA;
+    } else if (sortBy === "latest-time") {
+      return new Date(b.time) - new Date(a.time);
+    }
+  });
+  saveToLocalStorage();
+  displayChemicals(chemicals);
+}
+
+function displayChemicals(list) {
+  const chemicalList = document.getElementById("chemicalList");
+  chemicalList.innerHTML = "";
+  list.forEach((chem) => {
+    chemicalList.innerHTML += `
+      <li class="chemical-item">
+        <span>${chem.name} - ${chem.quantity} ${chem.unit}</span>
+        <div>
+          <button class="edit-btn" onclick="editChemical('${chem.name}')">Edit</button>
+          <button class="add-btn" onclick="addQuantity('${chem.name}')">Add</button>
+          <button class="delete-btn" onclick="deleteChemical('${chem.name}')">Delete</button>
+        </div>
+      </li>`;
+  });
+}
+
+function addChemical() {
+  if (!allowedToEdit) {
+    alert("You do not have permission to add chemicals.");
+    return;
   }
-});
+  let name = prompt("Enter chemical name:");
+  let quantity = parseFloat(prompt("Enter quantity:"));
+  let unit = prompt("Enter unit (ml, litre, g, kg, etc.):").toLowerCase();
+  let time = new Date().toISOString();
 
-// 🔽 Load Chemicals
-async function loadChemicals(role) {
-  const chemTable = document.getElementById("chemicalTableBody");
-  chemTable.innerHTML = "";
-
-  const searchQuery = document.getElementById("searchInput")?.value?.toLowerCase() || "";
-  const filterCategory = document.getElementById("filterCategory")?.value || "all";
-  const sortBy = document.getElementById("sortSelect")?.value || "";
-
-  let chemSnapshot = await getDocs(collection(db, "chemicals"));
-  let chemList = [];
-
-  chemSnapshot.forEach((docItem) => {
-    const data = docItem.data();
-    chemList.push({ id: docItem.id, ...data });
-  });
-
-  // Filter & Search
-  chemList = chemList.filter(item => {
-    const matchName = item.name.toLowerCase().includes(searchQuery);
-    const matchCategory = filterCategory === "all" || item.category === filterCategory;
-    return matchName && matchCategory;
-  });
-
-  // Sort
-  if (sortBy === "name") {
-    chemList.sort((a, b) => a.name.localeCompare(b.name));
-  } else if (sortBy === "quantity") {
-    chemList.sort((a, b) => Number(a.quantity) - Number(b.quantity));
-  } else if (sortBy === "expiryDate") {
-    chemList.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
-  }
-
-  // Render Table
-  chemList.forEach(data => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${data.name}</td>
-      <td>${data.quantity}</td>
-      <td>${data.category}</td>
-      <td>${data.purchaseDate}</td>
-      <td>${data.expiryDate}</td>
-      <td>
-        ${role === 'admin' ? `
-          <button onclick="editChemical('${data.id}', '${data.name}', '${data.quantity}', '${data.category}', '${data.purchaseDate}', '${data.expiryDate}')">Edit</button>
-          <button onclick="deleteChemical('${data.id}')">Delete</button>
-        ` : `View Only`}
-      </td>
-    `;
-    chemTable.appendChild(row);
-  });
-}
-
-// ➕ Add Chemical
-const chemForm = document.getElementById("chemicalForm");
-if (chemForm) {
-  chemForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = document.getElementById("chemName").value;
-    const quantity = document.getElementById("chemQty").value;
-    const category = document.getElementById("chemCategory").value;
-    const purchaseDate = document.getElementById("chemPurchase").value;
-    const expiryDate = document.getElementById("chemExpiry").value;
-
-    await addDoc(collection(db, "chemicals"), {
-      name,
-      quantity,
-      category,
-      purchaseDate,
-      expiryDate
-    });
-
-    alert("Chemical Added!");
-    chemForm.reset();
-    loadChemicals(currentRole);
-  });
-}
-
-// ❌ Delete Chemical
-window.deleteChemical = async function (id) {
-  const confirmDel = confirm("Are you sure you want to delete this chemical?");
-  if (!confirmDel) return;
-  await deleteDoc(doc(db, "chemicals", id));
-  alert("Deleted Successfully");
-  loadChemicals(currentRole);
-}
-
-// ✏️ Edit Chemical
-window.editChemical = async function (id, name, qty, cat, purchase, expiry) {
-  const newName = prompt("Update Name", name);
-  const newQty = prompt("Update Quantity", qty);
-  const newCat = prompt("Update Category", cat);
-  const newPurchase = prompt("Update Purchase Date", purchase);
-  const newExpiry = prompt("Update Expiry Date", expiry);
-
-  if (!newName || !newQty || !newCat || !newPurchase || !newExpiry) {
-    alert("Edit cancelled. All fields are required.");
+  if (!name || isNaN(quantity) || !unit) {
+    alert("Invalid input!");
     return;
   }
 
-  const chemRef = doc(db, "chemicals", id);
-  await updateDoc(chemRef, {
-    name: newName,
-    quantity: newQty,
-    category: newCat,
-    purchaseDate: newPurchase,
-    expiryDate: newExpiry
-  });
+  let exists = chemicals.some(chem => chem.name.toLowerCase() === name.toLowerCase());
+  if (exists) {
+    alert("Chemical already exists!");
+    return;
+  }
 
-  alert("Updated Successfully");
-  loadChemicals(currentRole);
+  chemicals.push({ name, quantity, unit, time });
+  saveToLocalStorage();
+  displayChemicals(chemicals);
 }
 
-// 🔍 Trigger Reload on Filter/Search/Sort
-document.getElementById("searchInput")?.addEventListener("input", () => loadChemicals(currentRole));
-document.getElementById("filterCategory")?.addEventListener("change", () => loadChemicals(currentRole));
-document.getElementById("sortSelect")?.addEventListener("change", () => loadChemicals(currentRole));
+function editChemical(name) {
+  if (!allowedToEdit) {
+    alert("You do not have permission to edit chemicals.");
+    return;
+  }
+  let chemical = chemicals.find(chem => chem.name === name);
+  if (!chemical) {
+    alert("Chemical not found!");
+    return;
+  }
 
+  let newQuantity = parseFloat(prompt(`Enter new quantity for ${name} (${chemical.unit}):`));
+  let newUnit = prompt(`Enter new unit for ${name} (${chemical.unit}):`).toLowerCase();
 
-// Logout function
-document.getElementById("logoutBtn").addEventListener("click", () => {
-  signOut(auth)
+  if (isNaN(newQuantity) || newQuantity < 0 || !newUnit) {
+    alert("Invalid input!");
+    return;
+  }
+
+  chemical.quantity = newQuantity;
+  chemical.unit = newUnit;
+  chemical.time = new Date().toISOString();
+  saveToLocalStorage();
+  displayChemicals(chemicals);
+}
+
+function addQuantity(name) {
+  if (!allowedToEdit) {
+    alert("You do not have permission to add quantity.");
+    return;
+  }
+  let chemical = chemicals.find(chem => chem.name === name);
+  if (!chemical) {
+    alert("Chemical not found!");
+    return;
+  }
+
+  let additionalQuantity = parseFloat(prompt(`Enter quantity to add for ${name} (${chemical.unit}):`));
+  if (isNaN(additionalQuantity) || additionalQuantity <= 0) {
+    alert("Invalid quantity!");
+    return;
+  }
+
+  // Ask user for unit selection
+  let selectedUnit = prompt("Select unit: ml, litre, g, kg").toLowerCase();
+  const validUnits = ["ml", "litre", "g", "kg"];
+
+  if (!validUnits.includes(selectedUnit)) {
+    alert("Invalid unit! Please enter ml, litre, g, or kg.");
+    return;
+  }
+
+  // Convert existing and new quantity to a common base unit
+  let baseCurrent = convertToBaseUnit(chemical.quantity, chemical.unit);
+  let baseNew = convertToBaseUnit(additionalQuantity, selectedUnit);
+  
+  // Update stored quantity and set the latest unit used
+  chemical.quantity = (baseCurrent + baseNew) / convertToBaseUnit(1, selectedUnit);
+  chemical.unit = selectedUnit;
+  chemical.time = new Date().toISOString();
+
+  saveToLocalStorage();
+  displayChemicals(chemicals);
+}
+
+function deleteChemical(name) {
+  if (!allowedToEdit) {
+    alert("You do not have permission to delete chemicals.");
+    return;
+  }
+  chemicals = chemicals.filter(chem => chem.name !== name);
+  saveToLocalStorage();
+  displayChemicals(chemicals);
+}
+
+function saveToLocalStorage() {
+  localStorage.setItem("chemicals", JSON.stringify(chemicals));
+}
+
+function loadFromLocalStorage() {
+  let storedChemicals = localStorage.getItem("chemicals");
+  if (storedChemicals) {
+    chemicals = JSON.parse(storedChemicals);
+    displayChemicals(chemicals);
+  }
+}
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+  let mode = document.body.classList.contains("dark-mode") ? "dark" : "light";
+  localStorage.setItem("theme", mode);
+}
+
+// Converts a quantity to a base unit value for comparison (ml for liquids, g for solids)
+function convertToBaseUnit(quantity, unit) {
+  const unitConversion = {
+    "ml": 1,
+    "litre": 1000,
+    "g": 1,
+    "kg": 1000,
+  };
+  return quantity * (unitConversion[unit] || 1);
+}
+
+/* --------------------- Window Load --------------------- */
+window.onload = function () {
+  // Initialize Firebase authentication and role check
+  initAuth();
+  // Load chemicals from local storage
+  loadFromLocalStorage();
+  // Apply dark mode if previously set
+  if (localStorage.getItem("theme") === "dark") {
+    document.body.classList.add("dark-mode");
+  }
+};
+
+function logout() {
+  firebase.auth().signOut()
     .then(() => {
-      console.log("User signed out.");
-      window.location.href = "login.html";
+      window.location.href = "../login/login.html";
     })
     .catch((error) => {
-      console.error("Sign out error:", error);
+      console.error("Logout Error:", error);
     });
-});
+}
+
+function closeModal() {
+  document.getElementById("chemicalModal").style.display = "none";
+}
