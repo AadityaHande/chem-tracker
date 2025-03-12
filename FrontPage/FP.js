@@ -1,63 +1,15 @@
-// Retrieve stored chemicals or initialize to an empty array
+// FP.js
 let chemicals = JSON.parse(localStorage.getItem("chemicals")) || [];
-// Global flag to indicate if the current user has editing privileges (admin or teacher)
-let allowedToEdit = false;
 
-/* --------------------- Firebase Authentication & Role Checking --------------------- */
-function initAuth() {
-  firebase.auth().onAuthStateChanged((user) => {
-    if (user) {
-      // Update UI with Firebase user details: display email and photo if available
-      document.getElementById("userEmail").innerText = user.email;
-      if (user.photoURL) {
-        document.getElementById("userAvatar").src = user.photoURL;
-      }
-      // Retrieve user role from Firestore (using the document with id equal to user.uid)
-      firebase.firestore().collection("users").doc(user.uid).get()
-        .then((doc) => {
-          let roleText = "User"; // default role
-          if (doc.exists) {
-            let userData = doc.data();
-            if (userData.role === "admin") {
-              allowedToEdit = true;
-              roleText = "Admin";
-            } else if (userData.role === "teacher") {
-              allowedToEdit = true;
-              roleText = "Teacher";
-            } else {
-              allowedToEdit = false;
-            }
-          }
-          // Update the role element in the header
-          document.getElementById("userRole").innerText = roleText;
-          
-          // Optionally, show/hide the add button based on role
-          let addBtn = document.getElementById("addChemicalBtn");
-          if (allowedToEdit && addBtn) {
-            addBtn.style.display = "block";
-          } else if (addBtn) {
-            addBtn.style.display = "none";
-          }
-        })
-        .catch((error) => {
-          console.error("Error retrieving user data:", error);
-        });
-    } else {
-      // User is not signed in; redirect to login page.
-      window.location.href = "../login/login.html";
-    }
-  });
-}
-
-/* --------------------- Chemical Tracker Functions --------------------- */
-
-function searchChemicals() {
+// Searches chemicals based on user input
+export function searchChemicals() {
   let searchQuery = document.getElementById("searchBar").value.toLowerCase();
   let filteredChemicals = chemicals.filter(chem => chem.name.toLowerCase().includes(searchQuery));
   displayChemicals(filteredChemicals);
 }
 
-function sortChemicals() {
+// Sorts chemicals based on selected criteria
+export function sortChemicals() {
   let sortBy = document.getElementById("sort").value;
   chemicals.sort((a, b) => {
     let quantityA = convertToBaseUnit(a.quantity, a.unit);
@@ -74,7 +26,8 @@ function sortChemicals() {
   displayChemicals(chemicals);
 }
 
-function displayChemicals(list) {
+// Renders the list of chemicals into the DOM
+export function displayChemicals(list) {
   const chemicalList = document.getElementById("chemicalList");
   chemicalList.innerHTML = "";
   list.forEach((chem) => {
@@ -90,8 +43,9 @@ function displayChemicals(list) {
   });
 }
 
-function addChemical() {
-  if (!allowedToEdit) {
+// Adds a new chemical if user has permission
+export function addChemical() {
+  if (!window.allowedToEdit) {
     alert("You do not have permission to add chemicals.");
     return;
   }
@@ -116,8 +70,9 @@ function addChemical() {
   displayChemicals(chemicals);
 }
 
-function editChemical(name) {
-  if (!allowedToEdit) {
+// Edits an existing chemical if user has permission
+export function editChemical(name) {
+  if (!window.allowedToEdit) {
     alert("You do not have permission to edit chemicals.");
     return;
   }
@@ -142,8 +97,9 @@ function editChemical(name) {
   displayChemicals(chemicals);
 }
 
-function addQuantity(name) {
-  if (!allowedToEdit) {
+// Adds quantity to an existing chemical if user has permission
+export function addQuantity(name) {
+  if (!window.allowedToEdit) {
     alert("You do not have permission to add quantity.");
     return;
   }
@@ -159,20 +115,16 @@ function addQuantity(name) {
     return;
   }
 
-  // Ask user for unit selection
   let selectedUnit = prompt("Select unit: ml, litre, g, kg").toLowerCase();
   const validUnits = ["ml", "litre", "g", "kg"];
-
   if (!validUnits.includes(selectedUnit)) {
     alert("Invalid unit! Please enter ml, litre, g, or kg.");
     return;
   }
 
-  // Convert existing and new quantity to a common base unit
   let baseCurrent = convertToBaseUnit(chemical.quantity, chemical.unit);
   let baseNew = convertToBaseUnit(additionalQuantity, selectedUnit);
   
-  // Update stored quantity and set the latest unit used
   chemical.quantity = (baseCurrent + baseNew) / convertToBaseUnit(1, selectedUnit);
   chemical.unit = selectedUnit;
   chemical.time = new Date().toISOString();
@@ -181,8 +133,9 @@ function addQuantity(name) {
   displayChemicals(chemicals);
 }
 
-function deleteChemical(name) {
-  if (!allowedToEdit) {
+// Deletes a chemical if user has permission
+export function deleteChemical(name) {
+  if (!window.allowedToEdit) {
     alert("You do not have permission to delete chemicals.");
     return;
   }
@@ -191,11 +144,13 @@ function deleteChemical(name) {
   displayChemicals(chemicals);
 }
 
-function saveToLocalStorage() {
+// Saves chemicals to localStorage
+export function saveToLocalStorage() {
   localStorage.setItem("chemicals", JSON.stringify(chemicals));
 }
 
-function loadFromLocalStorage() {
+// Loads chemicals from localStorage
+export function loadFromLocalStorage() {
   let storedChemicals = localStorage.getItem("chemicals");
   if (storedChemicals) {
     chemicals = JSON.parse(storedChemicals);
@@ -203,13 +158,14 @@ function loadFromLocalStorage() {
   }
 }
 
-function toggleDarkMode() {
+// Toggles dark mode and saves preference
+export function toggleDarkMode() {
   document.body.classList.toggle("dark-mode");
   let mode = document.body.classList.contains("dark-mode") ? "dark" : "light";
   localStorage.setItem("theme", mode);
 }
 
-// Converts a quantity to a base unit value for comparison (ml for liquids, g for solids)
+// Helper function to convert quantities to a base unit for comparison
 function convertToBaseUnit(quantity, unit) {
   const unitConversion = {
     "ml": 1,
@@ -220,28 +176,7 @@ function convertToBaseUnit(quantity, unit) {
   return quantity * (unitConversion[unit] || 1);
 }
 
-/* --------------------- Window Load --------------------- */
-window.onload = function () {
-  // Initialize Firebase authentication and role check
-  initAuth();
-  // Load chemicals from local storage
-  loadFromLocalStorage();
-  // Apply dark mode if previously set
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark-mode");
-  }
-};
-
-function logout() {
-  firebase.auth().signOut()
-    .then(() => {
-      window.location.href = "../login/login.html";
-    })
-    .catch((error) => {
-      console.error("Logout Error:", error);
-    });
-}
-
-function closeModal() {
+// Closes the modal window
+export function closeModal() {
   document.getElementById("chemicalModal").style.display = "none";
 }
