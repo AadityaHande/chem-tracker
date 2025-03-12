@@ -40,7 +40,7 @@
           await setDoc(userRef, { role: "teacher" });
         }
         // Redirect to frontpage after login
-        window.location.href = "../frontpage/FrontPage.html";
+        window.location.href = "../FrontPage/FrontPage.html";
       } catch (err) {
         alert("Login Failed: " + err.message);
       }
@@ -60,7 +60,7 @@
           email: user.email,
           role: "teacher"
         }, { merge: true });
-        window.location.href = "../frontpage/FrontPage.html";
+        window.location.href = "../FrontPage/FrontPage.html";
       } catch (err) {
         alert("Google Sign-In Failed: " + err.message);
       }
