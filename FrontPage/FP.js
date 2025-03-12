@@ -1,18 +1,9 @@
-// 🔥 Firebase Imports
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  updateDoc,
-  doc,
-  getDoc
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+// FP.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js";
 
-// 🔐 Firebase Configuration
+// Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyA7YubYlcBTuXYcLm7zH0W5JD0S0QqP3bI",
   authDomain: "chem-trial.firebaseapp.com",
@@ -22,38 +13,41 @@ const firebaseConfig = {
   appId: "1:774165499720:web:397fccc1491b053830ed7d"
 };
 
-// 🔧 Initialize Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentRole = null;
-
-// 🔄 Check Auth State
+// Check authentication state
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    document.getElementById("username").innerText = user.displayName || "N/A";
-    document.getElementById("useremail").innerText = user.email;
+    console.log("User is logged in:", user);
 
-    const docRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(docRef);
+    const uid = user.uid;
+    const userDocRef = doc(db, "users", uid);
+    const userDocSnap = await getDoc(userDocRef);
 
-    if (docSnap.exists()) {
-      currentRole = docSnap.data().role || "unknown";
-      document.getElementById("userrole").innerText = currentRole;
+    if (userDocSnap.exists()) {
+      const userData = userDocSnap.data();
 
-      if (currentRole === "admin") {
+      // Update UI
+      document.getElementById("username").textContent = user.displayName || "User";
+      document.getElementById("useremail").textContent = user.email || "No Email";
+      document.getElementById("userrole").textContent = userData.role || "No Role";
+
+      // Show role-based sections
+      if (userData.role === "admin") {
         document.getElementById("admin-section").style.display = "block";
         document.getElementById("add-chemical-form").style.display = "block";
-      } else {
+      } else if (userData.role === "teacher") {
         document.getElementById("teacher-section").style.display = "block";
       }
 
-      loadChemicals(currentRole);
     } else {
-      document.getElementById("userrole").innerText = "Unknown (No Role Found)";
+      console.log("No Firestore user document found for this UID.");
     }
   } else {
+    // Redirect to login page
     window.location.href = "login.html";
   }
 });
@@ -176,11 +170,15 @@ document.getElementById("searchInput")?.addEventListener("input", () => loadChem
 document.getElementById("filterCategory")?.addEventListener("change", () => loadChemicals(currentRole));
 document.getElementById("sortSelect")?.addEventListener("change", () => loadChemicals(currentRole));
 
-// 🚪 Logout
-window.logout = function () {
-  signOut(auth).then(() => {
-    window.location.href = "login.html";
-  }).catch((error) => {
-    alert("Logout failed: " + error.message);
-  });
-};
+
+// Logout function
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  signOut(auth)
+    .then(() => {
+      console.log("User signed out.");
+      window.location.href = "login.html";
+    })
+    .catch((error) => {
+      console.error("Sign out error:", error);
+    });
+});
