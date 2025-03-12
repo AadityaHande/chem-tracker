@@ -4,12 +4,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.0/firebase
 
 // Replace these with your actual Firebase project configuration details
 const firebaseConfig = {
-  apiKey: "AIzaSyA7YubYlcBTuXYcLm7zH0W5JD0S0QqP3bI",
-  authDomain: "chem-trial.firebaseapp.com",
-  projectId: "chem-trial",
-  storageBucket: "chem-trial.firebasestorage.app",
-  messagingSenderId: "774165499720",
-  appId: "1:774165499720:web:397fccc1491b053830ed7d"
+  apiKey: "AIzaSyCBXje6fKRL73zosDAyoaOjgWqZMTDtAKk",
+  authDomain: "labchem-tracker.firebaseapp.com",
+  projectId: "labchem-tracker",
+  storageBucket: "labchem-tracker.firebasestorage.app",
+  messagingSenderId: "313862849960",
+  appId: "1:313862849960:web:94f024f262154389a9899d"
 };
 
 const app = initializeApp(firebaseConfig);
