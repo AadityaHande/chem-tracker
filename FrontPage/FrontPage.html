@@ -33,7 +33,7 @@
     <ul id="chemicalList" class="chemical-list"></ul>
   </div>
 
-  <!-- Button is shown only for users with editing privileges (admin/teacher) -->
+  <!-- Button shown only for users with admin/teacher privileges -->
   <button id="addChemicalBtn" class="add-btn" onclick="addChemical()" style="display:none;">Add Chemical</button>
 
   <div id="chemicalModal" class="modal">
@@ -45,16 +45,95 @@
     </div>
   </div>
   
-  <!-- Firebase SDKs (order matters) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
-  
-  <!-- Firebase configuration (initialize your app here) -->
-  <script src="../firebase/firebase-config.js"></script>
-  
-  <!-- FrontPage JavaScript -->
-<script type="module" src="FP.js"></script>
+  <script type="module">
+    import { auth, db } from "../firebase/firebase-config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+    import { 
+      searchChemicals,
+      sortChemicals,
+      displayChemicals,
+      addChemical,
+      editChemical,
+      addQuantity,
+      deleteChemical,
+      saveToLocalStorage,
+      loadFromLocalStorage,
+      toggleDarkMode,
+      closeModal
+    } from "./FP.js";
 
+    // Global flag to control edit permissions (set based on user role)
+    window.allowedToEdit = false;
+
+    // Authentication and role checking
+    function initAuth() {
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          document.getElementById("userEmail").innerText = user.email;
+          if (user.photoURL) {
+            document.getElementById("userAvatar").src = user.photoURL;
+          }
+          // Get user role from Firestore
+          const userRef = doc(db, "users", user.uid);
+          getDoc(userRef)
+            .then((docSnap) => {
+              let roleText = "User";
+              if (docSnap.exists()) {
+                const userData = docSnap.data();
+                if (userData.role === "admin") {
+                  window.allowedToEdit = true;
+                  roleText = "Admin";
+                } else if (userData.role === "teacher") {
+                  window.allowedToEdit = true;
+                  roleText = "Teacher";
+                } else {
+                  window.allowedToEdit = false;
+                }
+              }
+              document.getElementById("userRole").innerText = roleText;
+              document.getElementById("addChemicalBtn").style.display = window.allowedToEdit ? "block" : "none";
+            })
+            .catch((error) => {
+              console.error("Error retrieving user data:", error);
+            });
+        } else {
+          window.location.href = "../login/login.html";
+        }
+      });
+    }
+
+    function logoutUser() {
+      signOut(auth)
+        .then(() => {
+          window.location.href = "../login/login.html";
+        })
+        .catch((error) => {
+          console.error("Logout Error:", error);
+        });
+    }
+
+    // Expose logout function globally for use in HTML onclick
+    window.logout = logoutUser;
+
+    // Initialize app on window load
+    window.onload = function() {
+      initAuth();
+      loadFromLocalStorage();
+      if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark-mode");
+      }
+    };
+
+    // Expose FP.js functions to global scope for inline HTML event handlers
+    window.searchChemicals = searchChemicals;
+    window.sortChemicals = sortChemicals;
+    window.addChemical = addChemical;
+    window.editChemical = editChemical;
+    window.addQuantity = addQuantity;
+    window.deleteChemical = deleteChemical;
+    window.toggleDarkMode = toggleDarkMode;
+    window.closeModal = closeModal;
+  </script>
 </body>
 </html>
